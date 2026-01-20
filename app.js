@@ -1,9 +1,10 @@
-const API_ENDPOINT = '/api/tmdb';
+const BASE_URL = 'https://api.themoviedb.org/3';
 const IMG_BASE_URL = 'https://image.tmdb.org/t/p';
+
 
 const heroSection = document.getElementById('hero-section');
 const gridContainer = document.getElementById('top-movies-grid');
-const categoryContainer = document.getElementById('movie-categories-grid'); 
+const categoryContainer = document.getElementById('movie-categories-grid');
 const upcomingGrid = document.getElementById('upcoming-movies-grid');
 const modal = document.getElementById('modal');
 const searchInput = document.getElementById('search-input');
@@ -11,29 +12,23 @@ const mobileMenuBtn = document.getElementById('mobile-menu-btn');
 const mobileMenu = document.getElementById('mobile-menu');
 const logo = document.getElementById('logo');
 const categoryBtn = document.querySelectorAll('.category-btn');
+
+
 let isSearchActive = false;
 
-
-
-
-//function to call API
-async function fetchFromTMDB(endpoint, params = {}) {
+async function fetchFromProxy(endpoint, params = {}) {
     const queryParams = new URLSearchParams({
         endpoint,
         ...params
     });
-    
-    const response = await fetch(`${API_ENDPOINT}?${queryParams}`);
-    
+
+    const response = await fetch(`/api/tmdb?${queryParams}`);
     if (!response.ok) {
-        throw new Error(`API error: ${response.status}`);
+        throw new Error(`Proxy error: ${response.status}`);
     }
-    
     return response.json();
 }
 
-
-//function to show loading state
 function showLoadingState(container, type = 'grid') {
     if (type === 'grid') {
         container.innerHTML = `
@@ -42,11 +37,10 @@ function showLoadingState(container, type = 'grid') {
             </div>
         `;
     } else if (type === 'cards') {
-        // Skeleton cards
         const skeletons = Array(5).fill(null).map(() => `
             <div class="flex flex-col gap-2 animate-pulse">
                 <div class="bg-gray-700 rounded-lg aspect-[2/3]"></div>
-                <div class="h-4 bg-gray-700 rounded w-3/4"></div>
+                <div class="h-4 bg-gray-700 rounded w-3/4 mt-2"></div>
                 <div class="h-3 bg-gray-700 rounded w-1/2"></div>
             </div>
         `).join('');
@@ -68,35 +62,68 @@ function showLoadingState(container, type = 'grid') {
     }
 }
 
+//Reusable error display function
+function showErrorState(container, message, retryFunction = null) {
+    container.innerHTML = `
+        <div class="col-span-full text-center py-20 px-4">
+            <div class="max-w-md mx-auto">
+                <div class="text-6xl mb-4">⚠️</div>
+                <p class="text-red-400 text-xl font-semibold mb-2">Oops! Something went wrong</p>
+                <p class="text-gray-400 mb-6">${message}</p>
+                ${retryFunction ? `
+                    <button onclick="${retryFunction}" 
+                        class="bg-accent hover:bg-secondary px-6 py-3 rounded transition font-semibold">
+                        🔄 Try Again
+                    </button>
+                ` : ''}
+            </div>
+        </div>
+    `;
+}
+
 // Function to fetch trending movies
 async function getTrendingMovies() {
     showLoadingState(heroSection, 'hero');
     showLoadingState(gridContainer, 'cards');
+    
     try {
-        const data = await fetchFromTMDB('trending/movie/day', {
-            language: 'en-US',
-            page: '1'
+        const data = await fetchFromProxy('/trending/movie/day', {
+            page: 1
         });
-
         const movies = data.results;
         const heroMovie = movies[0];
         updateHero(heroMovie);
 
-
         const topFive = movies.slice(1, 6);
         renderMovieCards(topFive, gridContainer);
 
-        console.log(data.results);
         return data.results;
     } catch (error) {
         console.error("Error fetching trending movies:", error);
+         heroSection.innerHTML = `
+            <div class="relative h-full flex items-center justify-center bg-gray-800">
+                <div class="text-center px-4">
+                    <p class="text-red-400 text-2xl mb-4">Failed to load trending movie</p>
+                    <button onclick="getTrendingMovies()" 
+                        class="bg-accent hover:bg-secondary px-6 py-3 rounded transition">
+                        Retry
+                    </button>
+                </div>
+            </div>
+        `;
+        
+        showErrorState(
+            gridContainer, 
+            "We couldn't load trending movies. Please check your connection and try again.",
+            "getTrendingMovies()"
+        );
     }
 }
+       
 
 function updateHero(movie) {
     const backdropUrl = `${IMG_BASE_URL}/original${movie.backdrop_path}`;
     
-    // Creating the Hero HTML structure
     heroSection.innerHTML = `
         <div class="absolute inset-0 bg-cover bg-center" style="background-image: url('${backdropUrl}')">
             <div class="absolute inset-0 bg-gradient-to-t from-black via-black/50 to-transparent"></div>
@@ -113,6 +140,7 @@ function updateHero(movie) {
     `;
 }
 
+
 function renderMovieCards(movies, container) {
     container.innerHTML = ''; 
 
@@ -127,17 +155,21 @@ function renderMovieCards(movies, container) {
 
         card.innerHTML = `
             <div class="relative overflow-hidden rounded-lg bg-gray-800">
-                <img src="${posterUrl}" alt="${movie.title}" loading="lazy" decoding="async"
-                     class="w-full h-auto object-cover transform group-hover:scale-105 transition duration-300 aspect-[2/3]">
+                <img src="${posterUrl}" 
+                     alt="${movie.title}" 
+                     loading="lazy"
+                     decoding="async"
+                     class="w-full h-auto object-cover transform group-hover:scale-105 transition duration-300 aspect-[2/3]"
+                     onerror="this.src='https://placehold.co/500x750?text=No+Image'">
                 
                 ${movie.vote_average ? `
                     <div class="absolute top-2 right-2 bg-black/70 backdrop-blur-sm px-2 py-1 rounded flex items-center gap-1">
                         <span class="text-yellow-400">⭐</span>
                         <span class="text-white text-sm font-semibold">${movie.vote_average.toFixed(1)}</span>
                     </div>
-                ` : ''}     
+                ` : ''}
             </div>
-            <h3 class="text-white font-semibold truncate mt-2">${movie.title}</h3>
+            <h3 class="text-white font-semibold truncate mt-2" title="${movie.title}">${movie.title}</h3>
             <span class="text-gray-400 text-sm">
                 ${movie.release_date ? movie.release_date.split('-')[0] : 'N/A'}
             </span>
@@ -151,48 +183,39 @@ function renderMovieCards(movies, container) {
     });
 }
 
-//function to fetch popular movies for "ALL" category
+// Function to fetch popular movies for "ALL" category
 async function getPopularMovies() {
     showLoadingState(categoryContainer, 'cards');
-
+    
     try {
-        const response = await fetch(
-            `${BASE_URL}/movie/popular?api_key=${apiKey}&language=en-US&page=1`
-        );
-        const data = await response.json();
-        const movies = data.results;
-
-        const topTen = movies.slice(0, 10);
+        const data = await fetchFromProxy('/movie/popular', { page: 1});
+        const topTen = data.results.slice(0, 10);
         renderMovieCards(topTen, categoryContainer);
-        console.log(data.results);
-        return data.results;
-    }
-    catch (error) {
+    } catch (error) {
         console.error("Error fetching popular movies:", error);
+        showErrorState(categoryContainer, "Failed to load popular movies", "getPopularMovies()");
     }   
 }
 
 // Fetch movies by genre category
 async function getMovieCategory(id) {
+    showLoadingState(categoryContainer, 'cards');
+    
     try {
-        const response = await fetch(
-            `${BASE_URL}/discover/movie?api_key=${apiKey}&with_genres=${id}&language=en-US&page=1`
-        )
-        const data = await response.json();
-        const movies = data.results;
-        console.log(data.results);
+        const data = await fetchFromProxy('/discover/movie', {
+            with_genres: id,
+            page: 1
+        });
 
-        const topTen = movies.slice(0, 10);
+        const topTen = data.results.slice(0, 10);
         renderMovieCards(topTen, categoryContainer);
-    }
-    catch (error) {
+    } catch (error) {
         console.error("Error fetching movie categories:", error);
+        showErrorState(categoryContainer, "Failed to load this category", `getMovieCategory(${id})`);
     }
 }
 
-
-
-//click handler with active state management
+// Click handler with active state management
 categoryBtn.forEach(button => {
     button.addEventListener('click', () => {
         categoryBtn.forEach(btn => {
@@ -200,79 +223,90 @@ categoryBtn.forEach(button => {
             btn.classList.add('bg-secondary');
         });
         
-        // Add active state to clicked button
         button.classList.remove('bg-secondary');
         button.classList.add('bg-accent');
         
         const categoryId = button.getAttribute('data-id');
         
-        // Handling "ALL" button separately
         if (!categoryId) {
-            // This is the "ALL" button (no data-id)
             console.log('Fetching all popular movies');
             getPopularMovies();
         } else {
-            // This is a specific genre button
             console.log(`Category ID: ${categoryId}`);
             getMovieCategory(categoryId);
         }
     });
 });
 
-
-
-//function to fetch upcoming Movies.
+// Function to fetch upcoming Movies
 async function getUpcomingMovies() {
     showLoadingState(upcomingGrid, 'cards');
-
+    
     const today = new Date();
     const tomorrow = new Date(today);
     tomorrow.setDate(today.getDate() + 1);
-
     const dateStr = tomorrow.toISOString().split('T')[0];
-    const url = `${BASE_URL}/discover/movie?api_key=${apiKey}&language=en-US&sort_by=popularity.desc&primary_release_date.gte=${dateStr}`;
+
+    
     try {
-        const response = await fetch(url);
-        const data = await response.json();
 
+        const data = await fetchFromProxy('/discover/movie', {
+            'sort_by': 'popularity.desc',
+            'primary_release_date.gte': dateStr,
+        });
 
-        const movies = data.results;
-        console.log(movies);
-
-        const topFive = movies.slice(0, 5);
+        const topFive = data.results.slice(0, 5);
         renderMovieCards(topFive, upcomingGrid);
-    }
-    catch(error) {
+    } catch (error) {
         console.error("Error fetching upcoming movies:", error);
-    } 
-}
-
+        showErrorState(upcomingGrid, "Failed to load upcoming movies", "getUpcomingMovies()");
+    }
+};
 
 
 mobileMenuBtn.addEventListener('click', (e) => {
     e.stopPropagation();
     mobileMenu.classList.toggle('hidden');
-
+    
     const icon = mobileMenuBtn.querySelector('svg path');
-        if (mobileMenu.classList.contains('hidden')) {
-           icon.setAttribute('d', 'M4 6h16M4 12h16M4 18h16');
-        } else {
-           icon.setAttribute('d', 'M6 18L18 6M6 6l12 12');
+    if (mobileMenu.classList.contains('hidden')) {
+        icon.setAttribute('d', 'M4 6h16M4 12h16M4 18h16');
+    } else {
+        icon.setAttribute('d', 'M6 18L18 6M6 6l12 12');
     }
- });
+});
 
- //Close menu when clicking outside
+// Close menu when clicking a navigation link
+const navLinks = mobileMenu.querySelectorAll('a');
+navLinks.forEach(link => {
+    link.addEventListener('click', () => {
+        mobileMenu.classList.add('hidden');
+        const icon = mobileMenuBtn.querySelector('svg path');
+        icon.setAttribute('d', 'M4 6h16M4 12h16M4 18h16');
+    });
+});
+
+// Close menu when clicking outside
 document.addEventListener('click', (e) => {
     if (!mobileMenu.classList.contains('hidden') && 
         !mobileMenu.contains(e.target) && 
         !mobileMenuBtn.contains(e.target)) {
         mobileMenu.classList.add('hidden');
-        // Reset icon
         const icon = mobileMenuBtn.querySelector('svg path');
         icon.setAttribute('d', 'M4 6h16M4 12h16M4 18h16');
     }
 });
-//Close menu when search is performed
+
+// Close menu on ESC key
+document.addEventListener('keydown', (e) => {
+    if (e.key === 'Escape' && !mobileMenu.classList.contains('hidden')) {
+        mobileMenu.classList.add('hidden');
+        const icon = mobileMenuBtn.querySelector('svg path');
+        icon.setAttribute('d', 'M4 6h16M4 12h16M4 18h16');
+    }
+});
+
+
 searchInput.addEventListener('keypress', (e) => {
     if(e.key === 'Enter') {
         const query = searchInput.value.trim();
@@ -281,59 +315,51 @@ searchInput.addEventListener('keypress', (e) => {
             searchInput.value = '';
             
             // Close mobile menu if open
-            mobileMenu.classList.add('hidden');
-            const icon = mobileMenuBtn.querySelector('svg path');
-            icon.setAttribute('d', 'M4 6h16M4 12h16M4 18h16');
-        }
-    }
-});
-
-
-
-searchInput.addEventListener('keypress', (e) => {
-    if(e.key === 'Enter') {
-        const query = searchInput.value.trim();
-        if(query) {
-            searchMovies(query);
-            searchInput.value = '';
+            if (!mobileMenu.classList.contains('hidden')) {
+                mobileMenu.classList.add('hidden');
+                const icon = mobileMenuBtn.querySelector('svg path');
+                icon.setAttribute('d', 'M4 6h16M4 12h16M4 18h16');
+            }
         }
     }
 });
 
 async function searchMovies(query) {
-    const url = `${BASE_URL}/search/movie?api_key=${apiKey}&query=${encodeURIComponent(query)}`
+    showLoadingState(gridContainer, 'cards');
+    
     try {
-        const response = await fetch(url);
-        const data = await response.json();
-
+        const data = await fetchFromProxy('search/movie', {
+            query: encodeURIComponent(query)
+        });
         if (data.results.length > 0) {
             isSearchActive = true;
-
+            
+            // Hide all main sections
             heroSection.classList.add('hidden');
             document.querySelector('section:has(#movie-categories-grid)').classList.add('hidden');
             document.querySelector('section:has(#upcoming-movies-grid)').classList.add('hidden');
-        
-                const sectionTitle = document.getElementById('hero-h2'); 
-                sectionTitle.innerHTML = `
-                    Search Results for "${query}"
-                    <button id="clear-search"
-                        class="ml-4 text-sm bg-red-500 hover:bg-red-600 px-4 py-2 rounded transition">
-                        x Clear Search
-                    </button>
-                    `;
-            document.getElementById('clear-search').addEventListener('click', clearSearch);  
+            
+            // Update title and show clear search button
+            const sectionTitle = document.getElementById('hero-h2');
+            sectionTitle.innerHTML = `
+                Search Results for "${query}"
+                <button id="clear-search" 
+                    class="ml-4 text-sm bg-red-500 hover:bg-red-600 px-4 py-2 rounded transition">
+                    ✕ Clear Search
+                </button>
+            `;
+            
+            // Attach clear search handler
+            document.getElementById('clear-search').addEventListener('click', clearSearch);
             
             const sortedMovies = data.results.sort((a, b) => b.popularity - a.popularity);
             renderMovieCards(sortedMovies, gridContainer);
-
-
         } else {
             isSearchActive = true;
             heroSection.classList.add('hidden');
             document.querySelector('section:has(#movie-categories-grid)').classList.add('hidden');
             document.querySelector('section:has(#upcoming-movies-grid)').classList.add('hidden');
             
-            const gridContainer = document.getElementById('top-movies-grid');
             gridContainer.innerHTML = `
                 <div class="col-span-full text-center py-20">
                     <p class="text-gray-400 text-xl mb-4">No movies found for "${query}"</p>
@@ -344,43 +370,37 @@ async function searchMovies(query) {
                 </div>
             `;
         }
-
-
     } catch (error) {
+        console.error("Error searching:", error);
         gridContainer.innerHTML = `
-                <div class="col-span-full text-center py-20">
-                    <p class="text-gray-400 text-xl mb-4">No movies found for "${query}"</p>
-                    <button onclick="clearSearch()" 
-                        class="bg-accent hover:bg-secondary px-6 py-3 rounded transition">
-                        Try Another Search
-                    </button>
-                </div>
-            `;
+            <div class="col-span-full text-center py-20">
+                <p class="text-red-400 text-xl mb-4">⚠️ Search failed</p>
+                <p class="text-gray-400">Please try again</p>
+            </div>
+        `;
     }
 }
 
-
+// Clear search function 
 function clearSearch() {
     isSearchActive = false;
     
-  
+    // Show all sections again
     heroSection.classList.remove('hidden');
     document.querySelector('section:has(#movie-categories-grid)').classList.remove('hidden');
     document.querySelector('section:has(#upcoming-movies-grid)').classList.remove('hidden');
     
-   
+    // Restore original title
     document.getElementById('hero-h2').textContent = 'Trending Now';
     
- 
+    // Reload original content
     getTrendingMovies();
     
+    // Clear search input
     searchInput.value = '';
 }
 
-
-
-
-
+//logo click handler
 logo.addEventListener('click', () => {
     if (isSearchActive) {
         clearSearch();
@@ -388,45 +408,28 @@ logo.addEventListener('click', () => {
     window.scrollTo({ top: 0, behavior: 'smooth' });
 });
 
-
-
-
-
-
-
-
-
-
-
-
-
-
+// Proper error handling in getMovieData
 async function getMovieData(movieID) {
-    const modal = document.getElementById('modal');
     const movieDetail = document.getElementById('movie-detail');
-
+    
+    // Show modal with loading state
     modal.classList.remove('hidden');
     movieDetail.innerHTML = `
         <div class="flex items-center justify-center p-20">
-            <div class="text-white text-xl">Loading...</div>
+            <div class="animate-spin rounded-full h-16 w-16 border-t-4 border-b-4 border-accent"></div>
         </div>
     `;
-
+    
     try {
-        const endpoints = [
-            `${BASE_URL}/movie/${movieID}?api_key=${apiKey}`,
-            `${BASE_URL}/movie/${movieID}/videos?api_key=${apiKey}`,
-            `${BASE_URL}/movie/${movieID}/watch/providers?api_key=${apiKey}`,
-            `${BASE_URL}/movie/${movieID}/credits?api_key=${apiKey}`
-        ];
-
+        const [details, videos, providers, credits] = await Promise.all([
+            fetchFromProxy(`/movie/${movieID}`),
+            fetchFromProxy(`/movie/${movieID}/videos`),
+            fetchFromProxy(`/movie/${movieID}/watch/providers`),
+            fetchFromProxy(`/movie/${movieID}/credits`)
+        ]);
         const responses = await Promise.all(
             endpoints.map(url => fetch(url))
         );
-
-        const [details, videos, providers, credits] =
-            await Promise.all(responses.map(res => res.json()));
-
         const rating = details.vote_average.toFixed(1);
 
         const genres = details.genres
@@ -468,7 +471,9 @@ async function getMovieData(movieID) {
 
     } catch (error) {
         console.error("Error fetching data:", error);
-         movieDetail.innerHTML = `
+        
+        // Show user-friendly error message in modal
+        movieDetail.innerHTML = `
             <div class="relative p-8 bg-gray-900 rounded-lg">
                 <button id="close-overlay" 
                     class="absolute top-4 right-4 bg-red-500 hover:bg-red-600 text-white px-4 py-2 rounded-lg transition">
@@ -480,24 +485,25 @@ async function getMovieData(movieID) {
                 </div>
             </div>
         `;
-};
+    }
 }
 
 
-
 function renderMovieModal(movie) {
-    const modal = document.getElementById('modal');
     const movieDetail = document.getElementById('movie-detail');
-
-    modal.classList.remove('hidden');
 
     movieDetail.innerHTML = `
         <div class="relative max-h-[90vh] w-full overflow-y-auto">
-            <button id="close-overlay" class="absolute top-4 right-4 bg-red-500 hover:bg-red-600 text-white px-4 py-2 rounded-lg z-10 transition cursor-pointer">
-                x Close
+            <button id="close-overlay" class="absolute top-4 right-4 bg-red-500 hover:bg-red-600 text-white px-4 py-2 rounded-lg z-10 transition">
+                ✕ Close
             </button>
             
-            <img src="${movie.poster}" alt="${movie.title}" loading="lazy" decoding="async"  class="w-full rounded-t-lg">
+            <img src="${movie.poster}" 
+                 alt="${movie.title}" 
+                 loading="lazy"
+                 decoding="async"
+                 class="w-full rounded-t-lg"
+                 onerror="this.src='https://placehold.co/500x750?text=No+Image'">
             
             <div class="p-6 bg-gray-900 text-white rounded-b-lg">
                 <h2 class="text-2xl font-bold mb-4">${movie.title}</h2>
@@ -511,7 +517,7 @@ function renderMovieModal(movie) {
                     ${movie.trailerLink ? `
                         <p>
                             <strong class="text-red-400">🎥 Trailer:</strong>
-                            <a href="${movie.trailerLink}" target="_blank" class="text-blue-400 hover:underline ml-2">
+                            <a href="${movie.trailerLink}" target="_blank" rel="noopener noreferrer" class="text-blue-400 hover:underline ml-2">
                                 Watch on YouTube
                             </a>
                         </p>
@@ -522,7 +528,11 @@ function renderMovieModal(movie) {
                 <div class="grid grid-cols-1 gap-4">
                     ${movie.topCast.map(actor => `
                         <div class="flex items-center gap-3 bg-gray-800 p-3 rounded-lg">
-                            <img src="${actor.image}" alt="${actor.name}" loading="lazy" class="w-16 h-16 rounded-full object-cover">
+                            <img src="${actor.image}" 
+                                 alt="${actor.name}"
+                                 loading="lazy"
+                                 class="w-16 h-16 rounded-full object-cover"
+                                 onerror="this.src='https://via.placeholder.com/100?text=${actor.name.charAt(0)}'">
                             <div>
                                 <p class="font-semibold text-white">${actor.name}</p>
                                 <p class="text-sm text-gray-400">${actor.character}</p>
@@ -536,21 +546,21 @@ function renderMovieModal(movie) {
 }
 
 function openModal() {
-    document.getElementById('modal').classList.remove('hidden');
+    modal.classList.remove('hidden');
     document.body.classList.add('overflow-hidden');
 }
+
 function closeModal() {
-    document.getElementById('modal').classList.add('hidden');
+    modal.classList.add('hidden');
     document.body.classList.remove('overflow-hidden');
 }
-
 
 function handleMovieClick(movieID) {
     getMovieData(movieID);
 }
-// Attach modal close logic ONCE
+
+
 modal.addEventListener('click', (e) => {
-    // Close if clicking the backdrop or close button
     if (e.target.id === 'close-overlay' || 
         e.target.id === 'modal-backdrop' || 
         e.target.id === 'modal') {
@@ -558,21 +568,14 @@ modal.addEventListener('click', (e) => {
     }
 });
 
+
 document.addEventListener('keydown', (e) => {
     if (e.key === 'Escape' && !modal.classList.contains('hidden')) {
         closeModal();
     }
 });
 
-
-
-
-
-
-
-//Initialize with popular movies on page load
-
-
+// Initialize with popular movies on page load
 document.addEventListener('DOMContentLoaded', () => {
     getTrendingMovies();
     getPopularMovies();

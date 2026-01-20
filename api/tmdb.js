@@ -1,8 +1,8 @@
-const TMDB_API_KEY = process.env.TMDB_API_KEY; // Store in Vercel environment variables
+const TMDB_API_KEY = process.env.TMDB_API_KEY;
 const BASE_URL = 'https://api.themoviedb.org/3';
 
 export default async function handler(req, res) {
-  // Enabling CORS
+  
   res.setHeader('Access-Control-Allow-Origin', '*');
   res.setHeader('Access-Control-Allow-Methods', 'GET, OPTIONS');
   res.setHeader('Access-Control-Allow-Headers', 'Content-Type');
@@ -22,7 +22,6 @@ export default async function handler(req, res) {
       return res.status(400).json({ error: 'Endpoint is required' });
     }
 
-    // Building query string from params
     const queryParams = new URLSearchParams({
       api_key: TMDB_API_KEY,
       ...params
