@@ -328,7 +328,7 @@ async function searchMovies(query) {
     showLoadingState(gridContainer, 'cards');
     
     try {
-        const data = await fetchFromProxy('search/movie', {
+        const data = await fetchFromProxy('/search/movie', {
             query: encodeURIComponent(query)
         });
         if (data.results.length > 0) {
@@ -427,9 +427,6 @@ async function getMovieData(movieID) {
             fetchFromProxy(`/movie/${movieID}/watch/providers`),
             fetchFromProxy(`/movie/${movieID}/credits`)
         ]);
-        const responses = await Promise.all(
-            endpoints.map(url => fetch(url))
-        );
         const rating = details.vote_average.toFixed(1);
 
         const genres = details.genres
