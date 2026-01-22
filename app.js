@@ -133,11 +133,93 @@ function updateHero(movie) {
             <h1 class="text-5xl font-extrabold text-text mb-4">${movie.title}</h1>
             <p class="text-text text-lg line-clamp-3 mb-6">${movie.overview}</p>
             <div class="flex gap-4">
-                <button class="bg-accent hover:bg-secondary text-white px-8 py-3 rounded font-bold transition cursor-pointer" onclick="playTrailer('${movie.id}')">Play Trailer</button>
-                <button class="bg-secondary hover:bg-accent text-white px-8 py-3 rounded font-bold transition border border-gray-600 cursor-pointer" onclick="showMovieDetails('${movie.id}')">More Info</button>
+                <button id="hero-play-trailer" class="bg-accent hover:bg-secondary text-white px-8 py-3 rounded font-bold transition cursor-pointer flex items-center gap-2">
+                    <span>▶️</span> Play Trailer
+                </button>
+                <button id="hero-more-info" class="bg-secondary hover:bg-accent text-white px-8 py-3 rounded font-bold transition border border-gray-600 cursor-pointer flex items-center gap-2">
+                    <span>ℹ️</span> More Info
+                </button>
             </div>
         </div>
     `;
+    
+   
+    const playTrailerBtn = document.getElementById('hero-play-trailer');
+    const moreInfoBtn = document.getElementById('hero-more-info');
+    
+    // Play Trailer - Opens modal with embedded YouTube player
+    playTrailerBtn.addEventListener('click', async () => {
+        const movieDetail = document.getElementById('movie-detail');
+        modal.classList.remove('hidden');
+        
+        movieDetail.innerHTML = `
+            <div class="flex items-center justify-center p-20">
+                <div class="animate-spin rounded-full h-16 w-16 border-t-4 border-b-4 border-accent"></div>
+            </div>
+        `;
+        
+        try {
+            const videos = await fetchFromProxy(`/movie/${movie.id}/videos`);
+            const trailer = videos.results.find(
+                v => v.site === 'YouTube' && v.type === 'Trailer'
+            );
+            
+            if (trailer) {
+                movieDetail.innerHTML = `
+                    <div class="relative bg-gray-900 rounded-lg overflow-hidden max-w-4xl w-full">
+                        <button id="close-overlay" class="absolute top-4 right-4 bg-red-500 hover:bg-red-600 text-white px-4 py-2 rounded-lg z-20 transition">
+                            ✕ Close
+                        </button>
+                        
+                        <div class="relative" style="padding-bottom: 56.25%;">
+                            <iframe 
+                                class="absolute top-0 left-0 w-full h-full"
+                                src="https://www.youtube.com/embed/${trailer.key}?autoplay=1" 
+                                frameborder="0" 
+                                allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture" 
+                                allowfullscreen>
+                            </iframe>
+                        </div>
+                        
+                        <div class="p-6">
+                            <h2 class="text-2xl font-bold text-white mb-2">${movie.title}</h2>
+                            <p class="text-gray-400">Official Trailer</p>
+                        </div>
+                    </div>
+                `;
+            } else {
+                movieDetail.innerHTML = `
+                    <div class="relative p-8 bg-gray-900 rounded-lg max-w-md">
+                        <button id="close-overlay" class="absolute top-4 right-4 bg-red-500 hover:bg-red-600 text-white px-4 py-2 rounded-lg transition">
+                            ✕ Close
+                        </button>
+                        <div class="text-center pt-8">
+                            <p class="text-gray-400 text-xl mb-4">😔 No trailer available</p>
+                            <p class="text-gray-500">Sorry, we couldn't find a trailer for this movie.</p>
+                        </div>
+                    </div>
+                `;
+            }
+        } catch (error) {
+            console.error('Error fetching trailer:', error);
+            movieDetail.innerHTML = `
+                <div class="relative p-8 bg-gray-900 rounded-lg max-w-md">
+                    <button id="close-overlay" class="absolute top-4 right-4 bg-red-500 hover:bg-red-600 text-white px-4 py-2 rounded-lg transition">
+                        ✕ Close
+                    </button>
+                    <div class="text-center pt-8">
+                        <p class="text-red-400 text-xl mb-4">⚠️ Failed to load trailer</p>
+                        <p class="text-gray-400">Please try again later</p>
+                    </div>
+                </div>
+            `;
+        }
+    });
+    
+    // More Info button
+    moreInfoBtn.addEventListener('click', () => {
+        handleMovieClick(movie.id);
+    });
 }
 
 
