@@ -134,10 +134,10 @@ function updateHero(movie) {
             <p class="text-text text-lg line-clamp-3 mb-6">${movie.overview}</p>
             <div class="flex gap-4">
                 <button id="hero-play-trailer" class="bg-accent hover:bg-secondary text-white px-8 py-3 rounded font-bold transition cursor-pointer flex items-center gap-2">
-                    <span>▶️</span> Play Trailer
+                Play Trailer
                 </button>
                 <button id="hero-more-info" class="bg-secondary hover:bg-accent text-white px-8 py-3 rounded font-bold transition border border-gray-600 cursor-pointer flex items-center gap-2">
-                    <span>ℹ️</span> More Info
+                 More Info
                 </button>
             </div>
         </div>
@@ -194,7 +194,7 @@ function updateHero(movie) {
                             ✕ Close
                         </button>
                         <div class="text-center pt-8">
-                            <p class="text-gray-400 text-xl mb-4">😔 No trailer available</p>
+                            <p class="text-gray-400 text-xl mb-4">No trailer available</p>
                             <p class="text-gray-500">Sorry, we couldn't find a trailer for this movie.</p>
                         </div>
                     </div>
